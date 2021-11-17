@@ -1,6 +1,6 @@
 # skiplist
 
-simple skiplist
+simple skiplist.
 
 ### Quick start
 

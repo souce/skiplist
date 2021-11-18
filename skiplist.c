@@ -21,7 +21,7 @@
 #include "skiplist.h"
 
 #define SKIPLIST_P 0.25
-#define SKIPLIST_MAXLEVEL 32
+#define SKIPLIST_MAXLEVEL 16
 static int random_level() {
     int level = 1;
     while ((random() & 0xFFFF) < (SKIPLIST_P * 0xFFFF))
@@ -102,7 +102,7 @@ void *skiplist_search(struct skiplist *sl, void *item){
 
     search(sl, item, tracks);
     struct skiplist_node *node = tracks[0]->forward[0];
-    if(NULL != node && NULL != node->item && 0 == sl->cmp_item(item, node->item)){
+    if(NULL != node && NULL != node->item && 0 == sl->cmp_item(node->item, item)){
         return node->item;
     }
     //node not found

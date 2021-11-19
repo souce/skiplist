@@ -70,9 +70,9 @@ err:
 
 int map_del(struct map *m, void *key){
     struct map_pair pair = { .key=key, .value=NULL };
-    struct map_pair *predeleted_pair = (struct map_pair *)skiplist_remove((struct skiplist *)m, (struct skiplist_node *)&pair);
-    if(NULL != predeleted_pair){
-        map_pair_free(predeleted_pair);
+    struct skiplist_node *deleted_node = skiplist_remove((struct skiplist *)m, (struct skiplist_node *)&pair);
+    if(NULL != deleted_node){
+        map_pair_free((struct map_pair *)deleted_node);
         return MAP_OK;
     }
     return MAP_ERR;
@@ -84,7 +84,11 @@ int map_put(struct map *m, struct map_pair *pair){
 
 struct map_pair *map_get(struct map *m, void *key){
     struct map_pair pair = { .key=key, .value=NULL };
-    return (struct map_pair *)skiplist_search((struct skiplist *)m, (struct skiplist_node *)&pair);
+    struct skiplist_node *res_node = skiplist_search((struct skiplist *)m, (struct skiplist_node *)&pair);
+    if(NULL != res_node){
+        return (struct map_pair *)res_node;
+    }
+    return NULL;
 }
 
 void map_free(struct map *m){
@@ -107,8 +111,8 @@ void stress_testing(struct map *m, int data_len, int count) {
     int i = 0;
     for(; i < count; i++){
         struct map_pair *pair = calloc(1, sizeof(*pair));
-        pair->key = random_str(data_len); //the key and value cannot be the same; otherwise, they will be released twice
-        pair->value = random_str(data_len);
+        assert(NULL != (pair->key = random_str(data_len))); //the key and value cannot be the same; otherwise, they will be released twice
+        assert(NULL != (pair->value = random_str(data_len)));
         assert(MAP_OK == map_put(m, pair));
         assert(pair == map_get(m, pair->key));
     }
@@ -118,12 +122,12 @@ void stress_testing(struct map *m, int data_len, int count) {
 void cover_testing(struct map *m) __attribute__((unused));
 void cover_testing(struct map *m) {
     struct map_pair *old_pair = calloc(1, sizeof(*old_pair));
-    old_pair->key = strdup("test");
-    old_pair->value = strdup("old");
+    assert(NULL != (old_pair->key = strdup("test")));
+    assert(NULL != (old_pair->value = strdup("old")));
 
     struct map_pair *new_pair = calloc(1, sizeof(*new_pair));
-    new_pair->key = strdup("test");
-    new_pair->value = strdup("new");
+    assert(NULL != (new_pair->key = strdup("test")));
+    assert(NULL != (new_pair->value = strdup("new")));
 
     assert(MAP_OK == map_put(m, old_pair));
     assert(MAP_ERR == map_put(m, new_pair)); //duplicate values are not allowed to be inserted

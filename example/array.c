@@ -67,21 +67,25 @@ err:
 
 struct array_item *array_get(struct array *a, int index){
     struct array_item item = { .index=index, .value=NULL };
-    return (struct array_item *)skiplist_search((struct skiplist *)a, (struct skiplist_node *)&item);
+    struct skiplist_node * res_node = skiplist_search((struct skiplist *)a, (struct skiplist_node *)&item);
+    if(NULL != res_node){
+        return (struct array_item *)res_node;
+    }
+    return NULL;
 }
 
 int array_del(struct array *a, int index){
     struct array_item item = { .index=index, .value=NULL };
-    struct array_item *predeleted_item = (struct array_item *)skiplist_remove((struct skiplist *)a, (struct skiplist_node *)&item);
-    if(NULL != predeleted_item){
-        array_item_free(predeleted_item);
+    struct skiplist_node * deleted_node = skiplist_remove((struct skiplist *)a, (struct skiplist_node *)&item);
+    if(NULL != deleted_node){
+        array_item_free((struct array_item *)deleted_node);
         return ARRAY_OK;
     }
     return ARRAY_ERR;
 }
 
 int array_set(struct array *a, struct array_item *item){
-    array_del(a, item->index); //delete before insert
+    array_del(a, item->index); //try deleting before inserting
     return SKIPLIST_OK == skiplist_insert((struct skiplist *)a, (struct skiplist_node *)item) ? ARRAY_OK : ARRAY_ERR;
 }
 
@@ -105,8 +109,9 @@ void stress_testing(struct array *a, int data_len, int count) {
     int i = 0;
     for(; i < count; i++){
         struct array_item *item = calloc(1, sizeof(*item));
+        assert(NULL != item);
         item->index = i;
-        item->value = random_str(data_len);
+        assert(NULL != (item->value = random_str(data_len)));
         assert(ARRAY_OK == array_set(a, (void *)item));
         assert(item == array_get(a, item->index));
     }
@@ -116,8 +121,9 @@ void stress_testing(struct array *a, int data_len, int count) {
 void cover_testing(struct array *a) __attribute__((unused));
 void cover_testing(struct array *a) {
     struct array_item *new_item = calloc(1, sizeof(*new_item));
+    assert(NULL != new_item);
     new_item->index = 0;
-    new_item->value = strdup("test2");
+    assert(NULL != (new_item->value = strdup("test2")));
     assert(ARRAY_OK == array_set(a, (void *)new_item)); //replace
     assert(new_item == array_get(a, 0));
 }

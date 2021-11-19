@@ -89,7 +89,7 @@ err:
 }
 
 struct range_map_pair *range_map_get(struct range_map *m, void *key){
-    struct range_map_pair pair = { .min_key=key, .max_key=key };
+    struct range_map_pair pair = { .min_key = key, .max_key = key };
     return (struct range_map_pair *)skiplist_search((struct skiplist *)m, (struct skiplist_node *)&pair);
 }
 

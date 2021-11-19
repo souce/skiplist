@@ -95,7 +95,7 @@ struct skiplist_node *skiplist_remove(struct skiplist *sl, struct skiplist_node 
             }
         }
         sl->busy -= 1;
-        return existing_node; //returns the item of the deleted node to the user for cleansing
+        return existing_node; //returns the deleted node to the user for cleansing
     }
     //node not found
     return NULL;

@@ -90,7 +90,11 @@ err:
 
 struct range_map_pair *range_map_get(struct range_map *m, void *key){
     struct range_map_pair pair = { .min_key = key, .max_key = key };
-    return (struct range_map_pair *)skiplist_search((struct skiplist *)m, (struct skiplist_node *)&pair);
+    struct skiplist_node *res_node = skiplist_search((struct skiplist *)m, (struct skiplist_node *)&pair);
+    if(NULL != res_node){
+        return (struct range_map_pair *)res_node;
+    }
+    return NULL;
 }
 
 void range_map_pair_free(struct range_map_pair *pair){
@@ -107,9 +111,9 @@ void range_map_pair_free(struct range_map_pair *pair){
 
 int range_map_del(struct range_map *m, void *key){
     struct range_map_pair pair = { .min_key = key, .max_key = key };
-    struct range_map_pair *predeleted_pair = (struct range_map_pair *)skiplist_remove((struct skiplist *)m, (struct skiplist_node *)&pair);
-    if(NULL != predeleted_pair){
-        range_map_pair_free(predeleted_pair);
+    struct skiplist_node *deleted_node = skiplist_remove((struct skiplist *)m, (struct skiplist_node *)&pair);
+    if(NULL != deleted_node){
+        range_map_pair_free((struct range_map_pair *)deleted_node);
         return RANGE_MAP_OK;
     }
     return RANGE_MAP_ERR;

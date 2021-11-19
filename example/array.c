@@ -115,12 +115,10 @@ void stress_testing(struct array *a, int data_len, int count) {
 
 void cover_testing(struct array *a) __attribute__((unused));
 void cover_testing(struct array *a) {
-    char *new_key = calloc(1, 6);
-    strcpy(new_key, "test2");
     struct array_item *new_item = calloc(1, sizeof(*new_item));
     new_item->index = 0;
-    new_item->value = new_key;
-    assert(ARRAY_OK == array_set(a, (void *)new_item));
+    new_item->value = strdup("test2");
+    assert(ARRAY_OK == array_set(a, (void *)new_item)); //replace
     assert(new_item == array_get(a, 0));
 }
 

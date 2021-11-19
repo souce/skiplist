@@ -32,12 +32,13 @@
 #define MAP_MAX_KEY_LEN 32
 
 struct map_pair{
+    struct skiplist_node node;
     char *key;
     char *value;
 };
 
 struct map{
-    struct skiplist *sl;
+    struct skiplist sl;
 };
 
 static int map_pair_cmp(void *k1, void *k2){
@@ -56,19 +57,12 @@ void map_pair_free(struct map_pair *pair){
 }
 
 struct map *map_create(){
-    struct map *m = NULL;
-    struct skiplist *sl = NULL;
-
-    m = calloc(1, sizeof(*m));
+    struct map *m = calloc(1, sizeof(*m));
     if(NULL == m) goto err;
-    sl = skiplist_create(map_pair_cmp);
-    if(NULL == sl) goto err;
-    m->sl = sl;
+    if(SKIPLIST_OK != skiplist_init((struct skiplist *)m, map_pair_cmp)) goto err;
     return m;
 
 err:
-    if(NULL != sl)
-        skiplist_free(sl);
     if(NULL != m)
         free(m);
     return NULL;
@@ -76,7 +70,7 @@ err:
 
 int map_del(struct map *m, void *key){
     struct map_pair pair = { .key=key, .value=NULL };
-    struct map_pair *predeleted_pair = skiplist_remove(m->sl, (void *)&pair);
+    struct map_pair *predeleted_pair = (struct map_pair *)skiplist_remove((struct skiplist *)m, (struct skiplist_node *)&pair);
     if(NULL != predeleted_pair){
         map_pair_free(predeleted_pair);
         return MAP_OK;
@@ -85,22 +79,22 @@ int map_del(struct map *m, void *key){
 }
 
 int map_put(struct map *m, struct map_pair *pair){
-    return SKIPLIST_OK == skiplist_insert(m->sl, (void *)pair) ? MAP_OK : MAP_ERR;
+    return SKIPLIST_OK == skiplist_insert((struct skiplist *)m, (struct skiplist_node *)pair) ? MAP_OK : MAP_ERR;
 }
 
 struct map_pair *map_get(struct map *m, void *key){
     struct map_pair pair = { .key=key, .value=NULL };
-    return skiplist_search(m->sl, (void *)&pair);
+    return (struct map_pair *)skiplist_search((struct skiplist *)m, (void *)&pair);
 }
 
 void map_free(struct map *m){
     if(NULL == m) return;
-    SKIPLIST_FOREACH(m->sl, (void *curr){
+    SKIPLIST_FOREACH((struct skiplist *)m, (struct skiplist_node *curr){
         struct map_pair *pair = (struct map_pair *)curr;
         //printf("key:%s value:%s\n", pair->key, pair->value);        
         map_del(m, pair->key);
+        return SKIPLIST_OK; //continue
     });
-    skiplist_free(m->sl);
     free(m);
 }
 
@@ -153,7 +147,7 @@ int main(){
     cover_testing(m);
 
     //free
-    printf("map size before free:%d\n", m->sl->busy);
+    printf("map size before free:%d\n", ((struct skiplist *)m)->busy);
     map_free(m);
 
     printf("over\n");

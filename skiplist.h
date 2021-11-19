@@ -26,37 +26,37 @@ extern "C" {
 
 #define SKIPLIST_OK 0
 #define SKIPLIST_ERR -1
+#define SKIPLIST_MAXLEVEL 16
 
 struct skiplist_node{
-    void *item;
-    struct skiplist_node *forward[0];
+    struct skiplist_node *forward[SKIPLIST_MAXLEVEL];
 };
 
 typedef int skiplist_cmp_item(void *k1, void *k2);
 struct skiplist{
     int busy;
-    struct skiplist_node *header;
     skiplist_cmp_item *cmp_item;
+    struct skiplist_node header[0]; //pointer to default_header
+    struct skiplist_node default_header;
 };
 
-struct skiplist* skiplist_create(skiplist_cmp_item *key_cmp);
-void skiplist_free(struct skiplist *sl);
-void *skiplist_search(struct skiplist *sl, void *item);
-int skiplist_insert(struct skiplist *sl, void *item);
-void *skiplist_remove(struct skiplist *sl, void *item);
+int skiplist_init(struct skiplist *sl, skiplist_cmp_item *cmp_item);
+struct skiplist_node *skiplist_search(struct skiplist *sl, struct skiplist_node *node);
+int skiplist_insert(struct skiplist *sl, struct skiplist_node *new_node);
+struct skiplist_node *skiplist_remove(struct skiplist *sl, struct skiplist_node *del_node);
 
-typedef void skiplist_traversal(void *curr);
+typedef int skiplist_traversal(struct skiplist_node *curr);
 #define SKIPLIST_FOREACH(sl, function_body) \
     do{ \
         skiplist_traversal *traversal = ({ \
-            void __nested_func_ptr__ function_body \
+            int __nested_func_ptr__ function_body \
             __nested_func_ptr__; \
         }); \
         struct skiplist_node *node = (sl)->header->forward[0]; \
         while(NULL != node){ \
             struct skiplist_node *curr = node; \
             node = node->forward[0]; \
-            traversal((void *)(curr->item)); \
+            if(SKIPLIST_OK != traversal(curr)) break; \
         }; \
     }while(0);
 

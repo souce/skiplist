@@ -84,7 +84,7 @@ int map_put(struct map *m, struct map_pair *pair){
 
 struct map_pair *map_get(struct map *m, void *key){
     struct map_pair pair = { .key=key, .value=NULL };
-    return (struct map_pair *)skiplist_search((struct skiplist *)m, (void *)&pair);
+    return (struct map_pair *)skiplist_search((struct skiplist *)m, (struct skiplist_node *)&pair);
 }
 
 void map_free(struct map *m){
@@ -117,22 +117,13 @@ void stress_testing(struct map *m, int data_len, int count) {
 
 void cover_testing(struct map *m) __attribute__((unused));
 void cover_testing(struct map *m) {
-
-    char *old_key = calloc(1, 5);
-    strcpy(old_key, "test");
-    char *old_value = calloc(1, 4);
-    strcpy(old_value, "old");
     struct map_pair *old_pair = calloc(1, sizeof(*old_pair));
-    old_pair->key = old_key;
-    old_pair->value = old_value;
+    old_pair->key = strdup("test");
+    old_pair->value = strdup("old");
 
-    char *new_key = calloc(1, 5);
-    strcpy(new_key, "test");
-    char *new_value = calloc(1, 4);
-    strcpy(new_value, "new");
     struct map_pair *new_pair = calloc(1, sizeof(*new_pair));
-    new_pair->key = new_key;
-    new_pair->value = new_value;
+    new_pair->key = strdup("test");
+    new_pair->value = strdup("new");
 
     assert(MAP_OK == map_put(m, old_pair));
     assert(MAP_ERR == map_put(m, new_pair)); //duplicate values are not allowed to be inserted

@@ -69,7 +69,6 @@ int skiplist_insert(struct skiplist *sl, struct skiplist_node *new_node){
     if(NULL != existing_node && 0 == sl->cmp_item(existing_node, new_node)){
         goto err; //no repetition allowed
     }else{
-        //create a node to save data
         int level = random_level();
         int i = 0;
         for(; i < level; i ++){

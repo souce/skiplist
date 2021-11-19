@@ -31,12 +31,13 @@
 #define ARRAY_ERR -1
 
 struct array_item{
+    struct skiplist_node node;
     int index;
     char *value;
 };
 
 struct array{
-    struct skiplist *sl;
+    struct skiplist sl;
 };
 
 static int array_item_cmp(void *k1, void *k2){
@@ -53,27 +54,25 @@ static void array_item_free(struct array_item *item){
 }
 
 struct array *array_create(){
-    struct array *a = NULL;
-    struct skiplist *sl = NULL;
-
-    a = calloc(1, sizeof(*a));
+    struct array *a = calloc(1, sizeof(*a));
     if(NULL == a) goto err;
-    sl = skiplist_create(array_item_cmp);
-    if(NULL == sl) goto err;
-    a->sl = sl;
+    if(SKIPLIST_OK != skiplist_init((struct skiplist *)a, array_item_cmp)) goto err;
     return a;
 
 err:
-    if(NULL != sl)
-        skiplist_free(sl);
     if(NULL != a)
         free(a);
     return NULL;
 }
 
+struct array_item *array_get(struct array *a, int index){
+    struct array_item item = { .index=index, .value=NULL };
+    return (struct array_item *)skiplist_search((struct skiplist *)a, (struct skiplist_node *)&item);
+}
+
 int array_del(struct array *a, int index){
     struct array_item item = { .index=index, .value=NULL };
-    struct array_item *predeleted_item = skiplist_remove(a->sl, (void *)&item);
+    struct array_item *predeleted_item = (struct array_item *)skiplist_remove((struct skiplist *)a, (struct skiplist_node *)&item);
     if(NULL != predeleted_item){
         array_item_free(predeleted_item);
         return ARRAY_OK;
@@ -81,24 +80,19 @@ int array_del(struct array *a, int index){
     return ARRAY_ERR;
 }
 
-struct array_item *array_get(struct array *a, int index){
-    struct array_item item = { .index=index, .value=NULL };
-    return skiplist_search(a->sl, (void *)&item);
-}
-
 int array_set(struct array *a, struct array_item *item){
     array_del(a, item->index); //delete before insert
-    return SKIPLIST_OK == skiplist_insert(a->sl, (void *)item) ? ARRAY_OK : ARRAY_ERR;
+    return SKIPLIST_OK == skiplist_insert((struct skiplist *)a, (struct skiplist_node *)item) ? ARRAY_OK : ARRAY_ERR;
 }
 
 void array_free(struct array *a){
     if(NULL == a) return;
-    SKIPLIST_FOREACH(a->sl, (void *curr){
+    SKIPLIST_FOREACH((struct skiplist *)a, (struct skiplist_node *curr){
         struct array_item *item = (struct array_item *)curr;
         //printf("index:%d value:%s\n", item->index, item->value);        
         array_del(a, item->index);
+        return SKIPLIST_OK; //continue
     });
-    skiplist_free(a->sl);
     free(a);
 }
 
@@ -137,7 +131,7 @@ int main(){
     cover_testing(a);
 
     //free
-    printf("array size before free:%d\n", a->sl->busy);
+    printf("array size before free:%d\n", ((struct skiplist *)a)->busy);
     array_free(a);
 
     printf("over\n");

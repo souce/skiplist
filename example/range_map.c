@@ -32,13 +32,14 @@
 #define RANGE_MAP_MAX_KEY_LEN 32
 
 struct range_map_pair{
+    struct skiplist_node node;
     char *min_key;
     char *max_key;
     char *value;
 };
 
 struct range_map{
-    struct skiplist *sl;
+    struct skiplist sl;
 };
 
 static int range_map_pair_cmp(void *k1, void *k2){
@@ -56,19 +57,12 @@ static int range_map_pair_cmp(void *k1, void *k2){
 }
 
 struct range_map *range_map_create(){
-    struct range_map *m = NULL;
-    struct skiplist *sl = NULL;
-
-    m = calloc(1, sizeof(*m));
+    struct range_map *m = calloc(1, sizeof(*m));
     if(NULL == m) goto err;
-    sl = skiplist_create(range_map_pair_cmp);
-    if(NULL == sl) goto err;
-    m->sl = sl;
+    if(SKIPLIST_OK != skiplist_init((struct skiplist *)m, range_map_pair_cmp)) goto err;
     return m;
 
 err:
-    if(NULL != sl)
-        skiplist_free(sl);
     if(NULL != m)
         free(m);
     return NULL;
@@ -83,7 +77,7 @@ int range_map_put(struct range_map *m, char *min_key, char *max_key, char *value
     pair->min_key = min_key;
     pair->max_key = max_key;
     pair->value = value;
-    if(SKIPLIST_OK == skiplist_insert(m->sl, (void *)pair)){
+    if(SKIPLIST_OK == skiplist_insert((struct skiplist *)m, (struct skiplist_node *)pair)){
         return RANGE_MAP_OK;
     }
 
@@ -96,7 +90,7 @@ err:
 
 struct range_map_pair *range_map_get(struct range_map *m, void *key){
     struct range_map_pair pair = { .min_key=key, .max_key=key };
-    return skiplist_search(m->sl, (void *)&pair);
+    return (struct range_map_pair *)skiplist_search((struct skiplist *)m, (struct skiplist_node *)&pair);
 }
 
 void range_map_pair_free(struct range_map_pair *pair){
@@ -113,7 +107,7 @@ void range_map_pair_free(struct range_map_pair *pair){
 
 int range_map_del(struct range_map *m, void *key){
     struct range_map_pair pair = { .min_key = key, .max_key = key };
-    struct range_map_pair *predeleted_pair = skiplist_remove(m->sl, (void *)&pair);
+    struct range_map_pair *predeleted_pair = (struct range_map_pair *)skiplist_remove((struct skiplist *)m, (struct skiplist_node *)&pair);
     if(NULL != predeleted_pair){
         range_map_pair_free(predeleted_pair);
         return RANGE_MAP_OK;
@@ -123,12 +117,12 @@ int range_map_del(struct range_map *m, void *key){
 
 void range_map_free(struct range_map *m){
     if(NULL == m) return;
-    SKIPLIST_FOREACH(m->sl, (void *curr){
+    SKIPLIST_FOREACH((struct skiplist *)m, (struct skiplist_node *curr){
         struct range_map_pair *pair = (struct range_map_pair *)curr;
         //printf("del: min_key:%s max_key:%s value:%s\n", pair->min_key, pair->max_key, pair->value);        
         range_map_del(m, pair->min_key);
+        return SKIPLIST_OK; //continue
     });
-    skiplist_free(m->sl);
     free(m);
 }
 
@@ -144,9 +138,10 @@ void stress_testing(struct range_map *m) {
     assert(RANGE_MAP_OK == range_map_put(m, strdup("uuu"), strdup("vvv"), strdup("u~v")));
 
     //check sorted skiplist
-    SKIPLIST_FOREACH(m->sl, (void *curr){
+    SKIPLIST_FOREACH((struct skiplist *)m, (struct skiplist_node *curr){
         struct range_map_pair *pair = (struct range_map_pair *)curr;
-        printf("min_key:%s max_key:%s value:%s\n", pair->min_key, pair->max_key, pair->value);        
+        printf("min_key:%s max_key:%s value:%s\n", pair->min_key, pair->max_key, pair->value);
+        return SKIPLIST_OK; //continue     
     });
 
     //check

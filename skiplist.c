@@ -87,16 +87,16 @@ err:
 struct skiplist_node *skiplist_remove(struct skiplist *sl, struct skiplist_node *del_node){
     struct skiplist_node *tracks[SKIPLIST_MAXLEVEL];
     search(sl, del_node, tracks);
-    struct skiplist_node *predeleted_node = tracks[0]->forward[0];
-    if(NULL != predeleted_node && 0 == sl->cmp_item(predeleted_node, del_node)){
+    struct skiplist_node *existing_node = tracks[0]->forward[0];
+    if(NULL != existing_node && 0 == sl->cmp_item(existing_node, del_node)){
         int i = 0;
         for(; i < SKIPLIST_MAXLEVEL; i++){ //remove the deleted node from the linked list
-            if(tracks[i]->forward[i] == predeleted_node){
-                tracks[i]->forward[i] = predeleted_node->forward[i];
+            if(tracks[i]->forward[i] == existing_node){
+                tracks[i]->forward[i] = existing_node->forward[i];
             }
         }
         sl->busy -= 1;
-        return predeleted_node; //returns the item of the deleted node to the user for cleansing
+        return existing_node; //returns the item of the deleted node to the user for cleansing
     }
     //node not found
     return NULL;

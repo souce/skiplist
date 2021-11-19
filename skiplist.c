@@ -21,7 +21,6 @@
 #include "skiplist.h"
 
 #define SKIPLIST_P 0.25
-#define SKIPLIST_MAXLEVEL 16
 static int random_level() {
     int level = 1;
     while ((random() & 0xFFFF) < (SKIPLIST_P * 0xFFFF))
@@ -29,108 +28,49 @@ static int random_level() {
     return level < SKIPLIST_MAXLEVEL ? level : SKIPLIST_MAXLEVEL;
 }
 
-static struct skiplist_node* create_node(int level, void *item){
-    struct skiplist_node *node = (struct skiplist_node*)calloc(1, sizeof(*node) + (sizeof(node) * level));
-    if(NULL == node){
-        return NULL;
+int skiplist_init(struct skiplist *sl, skiplist_cmp_item *cmp_item){
+    if(NULL == cmp_item){
+        goto err;
     }
-    node->item = item;
-    return node;
+    sl->busy = 0;
+    sl->cmp_item = cmp_item;
+    return SKIPLIST_OK;
+    
+err:
+    return SKIPLIST_ERR;
 }
 
-static void free_node(struct skiplist_node *node){
-    if(NULL != node){
-        free(node); //free a node does not reclaim its item
-    }
-}
-
-static void search(struct skiplist *sl, void *item, struct skiplist_node **tracks){
-    struct skiplist_node *tmp_node = NULL;
-    tmp_node = sl->header;
+static inline void search(struct skiplist *sl, struct skiplist_node *node, struct skiplist_node **tracks){
+    struct skiplist_node *tmp_node = sl->header;
     int i = SKIPLIST_MAXLEVEL - 1; //the index starts at 0, so minus 1
     for(; i >= 0; i--){
-        while(tmp_node->forward[i] != NULL && 0 > sl->cmp_item(tmp_node->forward[i]->item, item)){
+        while(tmp_node->forward[i] != NULL && 0 > sl->cmp_item(tmp_node->forward[i], node)){
             tmp_node = tmp_node->forward[i];
         }
         tracks[i] = tmp_node; //record the path of each layer
     }
 }
 
-struct skiplist* skiplist_create(skiplist_cmp_item *cmp_item){
-    struct skiplist *sl = NULL;
-
-    if(NULL == cmp_item){
-        goto err;
-    }
-    
-    sl = (struct skiplist*)calloc(1, sizeof(*sl));
-    if(NULL == sl){
-        goto err;
-    }
-    sl->busy = 0;
-    sl->cmp_item = cmp_item;
-    sl->header = create_node(SKIPLIST_MAXLEVEL, NULL); //default header
-    if(NULL == sl->header){
-        goto err;
-    }
-    return sl;
-    
-err:
-    skiplist_free(sl);
-    return NULL;
-}
-
-void skiplist_free(struct skiplist *sl){
-    if(NULL != sl){
-        struct skiplist_node *node = sl->header;
-        while(NULL != node){
-            struct skiplist_node *curr = node;
-            node = node->forward[0];
-            free_node(curr); //free a node does not reclaim its item
-        };
-        sl->busy = 0;
-        free(sl);
-    }
-}
-
-void *skiplist_search(struct skiplist *sl, void *item){
+struct skiplist_node *skiplist_search(struct skiplist *sl, struct skiplist_node *node){
     struct skiplist_node *tracks[SKIPLIST_MAXLEVEL];
-
-    if(NULL == item){
-        goto err; //only the default header item can be NULL, and it cannot be found
-    }
-
-    search(sl, item, tracks);
-    struct skiplist_node *node = tracks[0]->forward[0];
-    if(NULL != node && NULL != node->item && 0 == sl->cmp_item(node->item, item)){
-        return node->item;
+    search(sl, node, tracks);
+    struct skiplist_node *existing_node = tracks[0]->forward[0];
+    if(NULL != existing_node && 0 == sl->cmp_item(existing_node, node)){
+        return existing_node;
     }
     //node not found
-
-err:
     return NULL;
 }
 
-int skiplist_insert(struct skiplist *sl, void *item){
-    struct skiplist_node *existing_node = NULL;
-    struct skiplist_node *new_node = NULL;
+int skiplist_insert(struct skiplist *sl, struct skiplist_node *new_node){
     struct skiplist_node *tracks[SKIPLIST_MAXLEVEL];
-
-    if(NULL == item){
-        goto err; //only the default header item can be NULL
-    }
-
-    search(sl, item, tracks);
-    existing_node = tracks[0]->forward[0];
-    if(NULL != existing_node && NULL != existing_node->item && 0 == sl->cmp_item(existing_node->item, item)){
+    search(sl, new_node, tracks);
+    struct skiplist_node *existing_node = tracks[0]->forward[0];
+    if(NULL != existing_node && 0 == sl->cmp_item(existing_node, new_node)){
         goto err; //no repetition allowed
     }else{
         //create a node to save data
         int level = random_level();
-        new_node = create_node(level, item);
-        if(NULL == new_node){
-            goto err;
-        }
         int i = 0;
         for(; i < level; i ++){
             new_node->forward[i] = tracks[i]->forward[i];
@@ -141,33 +81,23 @@ int skiplist_insert(struct skiplist *sl, void *item){
     return SKIPLIST_OK;
 
 err:
-    free_node(new_node);
     return SKIPLIST_ERR;
 }
 
-void *skiplist_remove(struct skiplist *sl, void *item){
+struct skiplist_node *skiplist_remove(struct skiplist *sl, struct skiplist_node *del_node){
     struct skiplist_node *tracks[SKIPLIST_MAXLEVEL];
-
-    if(NULL == item){
-        goto err; //the default header cannot be removed
-    }
-    
-    search(sl, item, tracks);
+    search(sl, del_node, tracks);
     struct skiplist_node *predeleted_node = tracks[0]->forward[0];
-    if(NULL != predeleted_node && NULL != predeleted_node->item && 0 == sl->cmp_item(predeleted_node->item, item)){
+    if(NULL != predeleted_node && 0 == sl->cmp_item(predeleted_node, del_node)){
         int i = 0;
         for(; i < SKIPLIST_MAXLEVEL; i++){ //remove the deleted node from the linked list
             if(tracks[i]->forward[i] == predeleted_node){
                 tracks[i]->forward[i] = predeleted_node->forward[i];
             }
         }
-        void *predeleted_item = predeleted_node->item;
-        free_node(predeleted_node);
         sl->busy -= 1;
-        return predeleted_item; //returns the item of the deleted node to the user for cleansing
+        return predeleted_node; //returns the item of the deleted node to the user for cleansing
     }
     //node not found
-
-err:
     return NULL;
 }

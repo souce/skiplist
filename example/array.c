@@ -91,13 +91,29 @@ int array_set(struct array *a, struct array_item *item){
 
 void array_free(struct array *a){
     if(NULL == a) return;
-    SKIPLIST_FOREACH((struct skiplist *)a, (struct skiplist_node *curr){
-        struct array_item *item = (struct array_item *)curr;
-        //printf("index:%d value:%s\n", item->index, item->value);        
+    struct skiplist_node *iter = (struct skiplist_node *)&(((struct skiplist *)a)->header);
+    SKIPLIST_FOREACH((struct skiplist *)a, iter, {
+        struct array_item *item = (struct array_item *)iter;
         array_del(a, item->index);
-        return SKIPLIST_OK; //continue
     });
     free(a);
+}
+
+//iterator
+struct array_iterator{
+    struct array_item *node_curr;
+};
+
+struct array_iterator array_iterator_begin(struct array *a, int index){
+    struct array_item pair = (struct array_item){ .index = index };
+    struct array_item *start_node = (struct array_item *)skiplist_search((struct skiplist *)a, (struct skiplist_node *)&pair);
+    return (struct array_iterator){ .node_curr = start_node };
+}
+
+struct array_item *array_iterator_next(struct array_iterator *iter){
+    struct skiplist_node *node_ref = (struct skiplist_node *)iter->node_curr;
+    iter->node_curr = (struct array_item *)(NULL != node_ref ? node_ref->forward[0] : NULL);
+    return (struct array_item *)node_ref;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -133,6 +149,17 @@ int main(){
 
     stress_testing(a, 32, 100000);
     cover_testing(a);
+
+    int i = 0;
+    struct array_iterator iterator = array_iterator_begin(a, 1234);
+    struct array_item *curr = NULL;
+    while(NULL != (curr = array_iterator_next(&iterator))){
+        printf("index:%d value:%s\n", curr->index, curr->value);
+        array_del(a, curr->index);
+        if(i++ >= 10){
+            break;
+        }
+    }
 
     //free
     printf("array size before free:%d\n", ((struct skiplist *)a)->busy);

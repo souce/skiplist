@@ -9,5 +9,7 @@ make array; ./array
 
 make map; ./map
 
+make set; ./set
+
 make range_map; ./range_map
 ```

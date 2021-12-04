@@ -93,13 +93,30 @@ struct map_pair *map_get(struct map *m, void *key){
 
 void map_free(struct map *m){
     if(NULL == m) return;
-    SKIPLIST_FOREACH((struct skiplist *)m, (struct skiplist_node *curr){
-        struct map_pair *pair = (struct map_pair *)curr;
+    struct skiplist_node *iter = (struct skiplist_node *)&(((struct skiplist *)m)->header);
+    SKIPLIST_FOREACH((struct skiplist *)m, iter, {
+        struct map_pair *pair = (struct map_pair *)iter;
         //printf("key:%s value:%s\n", pair->key, pair->value);        
         map_del(m, pair->key);
-        return SKIPLIST_OK; //continue
     });
     free(m);
+}
+
+//iterator
+struct map_iterator{
+    struct map_pair *node_curr;
+};
+
+struct map_iterator map_iterator_begin(struct map *m, char *key){
+    struct map_pair pair = (struct map_pair){ .key = key };
+    struct map_pair *start_node = (struct map_pair *)skiplist_search((struct skiplist *)m, (struct skiplist_node *)&pair);
+    return (struct map_iterator){ .node_curr = start_node };
+}
+
+struct map_pair *map_iterator_next(struct map_iterator *iter){
+    struct skiplist_node *node_ref = (struct skiplist_node *)iter->node_curr;
+    iter->node_curr = (struct map_pair *)(NULL != node_ref ? node_ref->forward[0] : NULL);
+    return (struct map_pair *)node_ref;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -140,6 +157,17 @@ int main(){
 
     stress_testing(m, MAP_MAX_KEY_LEN, 100000);
     cover_testing(m);
+
+    int i = 0;
+    struct map_iterator iterator = map_iterator_begin(m, "test");
+    struct map_pair *curr = NULL;
+    while(NULL != (curr = map_iterator_next(&iterator))){
+        printf("key:%s value:%s\n", curr->key, curr->value);
+        map_del(m, curr->key);
+        if(i++ >= 10){
+            break;
+        }
+    }
 
     //free
     printf("map size before free:%d\n", ((struct skiplist *)m)->busy);

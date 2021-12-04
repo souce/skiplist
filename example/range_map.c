@@ -88,15 +88,6 @@ err:
     return RANGE_MAP_ERR;
 }
 
-struct range_map_pair *range_map_get(struct range_map *m, void *key){
-    struct range_map_pair pair = { .min_key = key, .max_key = key };
-    struct skiplist_node *res_node = skiplist_search((struct skiplist *)m, (struct skiplist_node *)&pair);
-    if(NULL != res_node){
-        return (struct range_map_pair *)res_node;
-    }
-    return NULL;
-}
-
 void range_map_pair_free(struct range_map_pair *pair){
     if(NULL != pair){
         if(NULL != pair->min_key)
@@ -121,13 +112,37 @@ int range_map_del(struct range_map *m, void *key){
 
 void range_map_free(struct range_map *m){
     if(NULL == m) return;
-    SKIPLIST_FOREACH((struct skiplist *)m, (struct skiplist_node *curr){
-        struct range_map_pair *pair = (struct range_map_pair *)curr;
+    struct skiplist_node *iter = (struct skiplist_node *)&(((struct skiplist *)m)->header);
+    SKIPLIST_FOREACH((struct skiplist *)m, iter, {
+        struct range_map_pair *pair = (struct range_map_pair *)iter;
         //printf("del: min_key:%s max_key:%s value:%s\n", pair->min_key, pair->max_key, pair->value);        
         range_map_del(m, pair->min_key);
-        return SKIPLIST_OK; //continue
     });
     free(m);
+}
+
+//iterator
+struct range_map_iterator{
+    struct range_map_pair *node_curr;
+    struct range_map_pair range_compare_pair;
+};
+
+struct range_map_iterator range_map_iterator_begin(struct range_map *m, char *min_key, char *max_key){
+    struct range_map_pair pair = (struct range_map_pair){ .min_key = min_key, .max_key = max_key };
+    struct range_map_pair *start_node = (struct range_map_pair *)skiplist_search((struct skiplist *)m, (struct skiplist_node *)&pair);
+    return (struct range_map_iterator){ .node_curr = start_node, .range_compare_pair = pair };
+}
+
+struct range_map_pair *range_map_iterator_next(struct range_map_iterator *iter){
+    struct skiplist_node *node_ref = (struct skiplist_node *)iter->node_curr;
+    iter->node_curr = NULL;
+    if(NULL != node_ref){
+        struct skiplist_node *next_node = node_ref->forward[0];
+        if(NULL != next_node && 0 <= range_map_pair_cmp(&(iter->range_compare_pair), next_node)){
+            iter->node_curr = (struct range_map_pair *)next_node;
+        }
+    }
+    return (struct range_map_pair *)node_ref;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -142,31 +157,33 @@ void stress_testing(struct range_map *m) {
     assert(RANGE_MAP_OK == range_map_put(m, strdup("uuu"), strdup("vvv"), strdup("u~v")));
 
     //check sorted skiplist
-    SKIPLIST_FOREACH((struct skiplist *)m, (struct skiplist_node *curr){
-        struct range_map_pair *pair = (struct range_map_pair *)curr;
+    struct skiplist_node *iter = (struct skiplist_node *)&(((struct skiplist *)m)->header);
+    SKIPLIST_FOREACH((struct skiplist *)m, iter, {
+        struct range_map_pair *pair = (struct range_map_pair *)iter;
         printf("min_key:%s max_key:%s value:%s\n", pair->min_key, pair->max_key, pair->value);
-        return SKIPLIST_OK; //continue     
     });
 
     //check
-    struct range_map_pair *pair = NULL;
-    assert(NULL == range_map_get(m, "r"));
+    assert(NULL == range_map_iterator_begin(m, "r", "r").node_curr);
+    assert(NULL == range_map_iterator_begin(m, "e", "e").node_curr);
 
-    assert(NULL != (pair = range_map_get(m, "g")));
-    printf("'g' in range:%s\n", pair->value);
+    struct range_map_iterator iterator = range_map_iterator_begin(m, "g", "g");
+    struct range_map_pair *curr = NULL;
+    while(NULL != (curr = range_map_iterator_next(&iterator))){
+        printf("'g' in range:%s\n", curr->value);
+    }
 
-    assert(NULL != (pair = range_map_get(m, "b")));
-    printf("'b' in range:%s\n", pair->value);
+    iterator = range_map_iterator_begin(m, "b", "b");
+    curr = NULL;
+    while(NULL != (curr = range_map_iterator_next(&iterator))){
+        printf("'b' in range:%s\n", curr->value);
+    }
 
-    assert(NULL == range_map_get(m, "e"));
-
-    assert(NULL != (pair = range_map_get(m, "i")));
-    printf("'i' in range:%s\n", pair->value);
-
-    assert(NULL != (pair = range_map_get(m, "m")));
-    printf("'m' in range:%s\n", pair->value);
-
-    assert(NULL == range_map_get(m, "q"));
+    iterator = range_map_iterator_begin(m, "i", "z");
+    curr = NULL;
+    while(NULL != (curr = range_map_iterator_next(&iterator))){
+        printf("'i-z' in range:%s\n", curr->value);
+    }
 }
 
 int main(){

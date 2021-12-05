@@ -59,7 +59,7 @@ void map_pair_free(struct map_pair *pair){
 struct map *map_create(){
     struct map *m = calloc(1, sizeof(*m));
     if(NULL == m) goto err;
-    if(SKIPLIST_OK != skiplist_init((struct skiplist *)m, map_pair_cmp)) goto err;
+    SKIPLIST_INIT((struct skiplist *)m, map_pair_cmp);
     return m;
 
 err:
@@ -70,7 +70,7 @@ err:
 
 int map_del(struct map *m, void *key){
     struct map_pair pair = { .key=key, .value=NULL };
-    struct skiplist_node *deleted_node = skiplist_remove((struct skiplist *)m, (struct skiplist_node *)&pair);
+    struct skiplist_node *deleted_node = SKIPLIST_REMOVE((struct skiplist *)m, (struct skiplist_node *)&pair);
     if(NULL != deleted_node){
         map_pair_free((struct map_pair *)deleted_node);
         return MAP_OK;
@@ -79,12 +79,12 @@ int map_del(struct map *m, void *key){
 }
 
 int map_put(struct map *m, struct map_pair *pair){
-    return SKIPLIST_OK == skiplist_insert((struct skiplist *)m, (struct skiplist_node *)pair) ? MAP_OK : MAP_ERR;
+    return SKIPLIST_OK == SKIPLIST_PUT((struct skiplist *)m, (struct skiplist_node *)pair) ? MAP_OK : MAP_ERR;
 }
 
 struct map_pair *map_get(struct map *m, void *key){
     struct map_pair pair = { .key=key, .value=NULL };
-    struct skiplist_node *res_node = skiplist_search((struct skiplist *)m, (struct skiplist_node *)&pair);
+    struct skiplist_node *res_node = SKIPLIST_GET((struct skiplist *)m, (struct skiplist_node *)&pair);
     if(NULL != res_node){
         return (struct map_pair *)res_node;
     }
@@ -109,7 +109,7 @@ struct map_iterator{
 
 struct map_iterator map_iterator_begin(struct map *m, char *key){
     struct map_pair pair = (struct map_pair){ .key = key };
-    struct map_pair *start_node = (struct map_pair *)skiplist_search((struct skiplist *)m, (struct skiplist_node *)&pair);
+    struct map_pair *start_node = (struct map_pair *)SKIPLIST_GET((struct skiplist *)m, (struct skiplist_node *)&pair);
     return (struct map_iterator){ .node_curr = start_node };
 }
 

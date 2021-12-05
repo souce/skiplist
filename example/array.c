@@ -56,7 +56,7 @@ static void array_item_free(struct array_item *item){
 struct array *array_create(){
     struct array *a = calloc(1, sizeof(*a));
     if(NULL == a) goto err;
-    if(SKIPLIST_OK != skiplist_init((struct skiplist *)a, array_item_cmp)) goto err;
+    SKIPLIST_INIT((struct skiplist *)a, array_item_cmp);
     return a;
 
 err:
@@ -67,7 +67,7 @@ err:
 
 struct array_item *array_get(struct array *a, int index){
     struct array_item item = { .index=index, .value=NULL };
-    struct skiplist_node * res_node = skiplist_search((struct skiplist *)a, (struct skiplist_node *)&item);
+    struct skiplist_node * res_node = SKIPLIST_GET((struct skiplist *)a, (struct skiplist_node *)&item);
     if(NULL != res_node){
         return (struct array_item *)res_node;
     }
@@ -76,7 +76,7 @@ struct array_item *array_get(struct array *a, int index){
 
 int array_del(struct array *a, int index){
     struct array_item item = { .index=index, .value=NULL };
-    struct skiplist_node * deleted_node = skiplist_remove((struct skiplist *)a, (struct skiplist_node *)&item);
+    struct skiplist_node * deleted_node = SKIPLIST_REMOVE((struct skiplist *)a, (struct skiplist_node *)&item);
     if(NULL != deleted_node){
         array_item_free((struct array_item *)deleted_node);
         return ARRAY_OK;
@@ -86,7 +86,7 @@ int array_del(struct array *a, int index){
 
 int array_set(struct array *a, struct array_item *item){
     array_del(a, item->index); //try deleting before inserting
-    return SKIPLIST_OK == skiplist_insert((struct skiplist *)a, (struct skiplist_node *)item) ? ARRAY_OK : ARRAY_ERR;
+    return SKIPLIST_OK == SKIPLIST_PUT((struct skiplist *)a, (struct skiplist_node *)item) ? ARRAY_OK : ARRAY_ERR;
 }
 
 void array_free(struct array *a){
@@ -106,7 +106,7 @@ struct array_iterator{
 
 struct array_iterator array_iterator_begin(struct array *a, int index){
     struct array_item pair = (struct array_item){ .index = index };
-    struct array_item *start_node = (struct array_item *)skiplist_search((struct skiplist *)a, (struct skiplist_node *)&pair);
+    struct array_item *start_node = (struct array_item *)SKIPLIST_GET((struct skiplist *)a, (struct skiplist_node *)&pair);
     return (struct array_iterator){ .node_curr = start_node };
 }
 

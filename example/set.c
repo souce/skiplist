@@ -56,7 +56,7 @@ void set_item_free(struct set_item *item){
 struct set *set_create(){
     struct set *s = calloc(1, sizeof(*s));
     if(NULL == s) goto err;
-    if(SKIPLIST_OK != skiplist_init((struct skiplist *)s, set_item_cmp)) goto err;
+    SKIPLIST_INIT((struct skiplist *)s, set_item_cmp);
     return s;
 
 err:
@@ -67,7 +67,7 @@ err:
 
 int set_del(struct set *s, void *value){
     struct set_item item = { .value=value };
-    struct skiplist_node *deleted_node = skiplist_remove((struct skiplist *)s, (struct skiplist_node *)&item);
+    struct skiplist_node *deleted_node = SKIPLIST_REMOVE((struct skiplist *)s, (struct skiplist_node *)&item);
     if(NULL != deleted_node){
         set_item_free((struct set_item *)deleted_node);
         return SET_OK;
@@ -76,12 +76,12 @@ int set_del(struct set *s, void *value){
 }
 
 int set_put(struct set *s, struct set_item *item){
-    return SKIPLIST_OK == skiplist_insert((struct skiplist *)s, (struct skiplist_node *)item) ? SET_OK : SET_ERR;
+    return SKIPLIST_OK == SKIPLIST_PUT((struct skiplist *)s, (struct skiplist_node *)item) ? SET_OK : SET_ERR;
 }
 
 int set_contains(struct set *s, void *value){
     struct set_item item = { .value=value };
-    struct skiplist_node *res_node = skiplist_search((struct skiplist *)s, (struct skiplist_node *)&item);
+    struct skiplist_node *res_node = SKIPLIST_GET((struct skiplist *)s, (struct skiplist_node *)&item);
     if(NULL != res_node){
         return SET_OK;
     }

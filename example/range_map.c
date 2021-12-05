@@ -59,7 +59,7 @@ static int range_map_pair_cmp(void *k1, void *k2){
 struct range_map *range_map_create(){
     struct range_map *m = calloc(1, sizeof(*m));
     if(NULL == m) goto err;
-    if(SKIPLIST_OK != skiplist_init((struct skiplist *)m, range_map_pair_cmp)) goto err;
+    SKIPLIST_INIT((struct skiplist *)m, range_map_pair_cmp);
     return m;
 
 err:
@@ -77,7 +77,7 @@ int range_map_put(struct range_map *m, char *min_key, char *max_key, char *value
     pair->min_key = min_key;
     pair->max_key = max_key;
     pair->value = value;
-    if(SKIPLIST_OK == skiplist_insert((struct skiplist *)m, (struct skiplist_node *)pair)){
+    if(SKIPLIST_OK == SKIPLIST_PUT((struct skiplist *)m, (struct skiplist_node *)pair)){
         return RANGE_MAP_OK;
     }
 
@@ -102,7 +102,7 @@ void range_map_pair_free(struct range_map_pair *pair){
 
 int range_map_del(struct range_map *m, void *key){
     struct range_map_pair pair = { .min_key = key, .max_key = key };
-    struct skiplist_node *deleted_node = skiplist_remove((struct skiplist *)m, (struct skiplist_node *)&pair);
+    struct skiplist_node *deleted_node = SKIPLIST_REMOVE((struct skiplist *)m, (struct skiplist_node *)&pair);
     if(NULL != deleted_node){
         range_map_pair_free((struct range_map_pair *)deleted_node);
         return RANGE_MAP_OK;
@@ -129,7 +129,7 @@ struct range_map_iterator{
 
 struct range_map_iterator range_map_iterator_begin(struct range_map *m, char *min_key, char *max_key){
     struct range_map_pair pair = (struct range_map_pair){ .min_key = min_key, .max_key = max_key };
-    struct range_map_pair *start_node = (struct range_map_pair *)skiplist_search((struct skiplist *)m, (struct skiplist_node *)&pair);
+    struct range_map_pair *start_node = (struct range_map_pair *)SKIPLIST_GET((struct skiplist *)m, (struct skiplist_node *)&pair);
     return (struct range_map_iterator){ .node_curr = start_node, .range_compare_pair = pair };
 }
 

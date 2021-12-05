@@ -126,7 +126,7 @@ struct skiplist{
             } \
             (iter) = iter_next; \
         }; \
-    }while(0);
+    }while(0)
 
 #ifdef __cplusplus
 }

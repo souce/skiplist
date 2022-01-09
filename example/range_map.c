@@ -44,16 +44,12 @@ struct range_map{
 
 static int range_map_pair_cmp(void *k1, void *k2){
     struct range_map_pair *i = (struct range_map_pair *)k1, *j = (struct range_map_pair *)k2;
-    if(NULL != i->min_key && NULL != i->max_key && NULL != j->min_key && NULL != j->max_key){
-        if(0 < strncmp(i->min_key, j->max_key, RANGE_MAP_MAX_KEY_LEN)){
-            return 1;
-        } else if(0 > strncmp(i->max_key, j->min_key, RANGE_MAP_MAX_KEY_LEN)){
-            return -1;
-        } else {
-            return 0; //i->min_key <= j && i->max_key >= j
-        }
+    if(0 < strncmp(i->min_key, j->max_key, RANGE_MAP_MAX_KEY_LEN)){
+        return 1;
+    } else if(0 > strncmp(i->max_key, j->min_key, RANGE_MAP_MAX_KEY_LEN)){
+        return -1;
     }
-    return -1; //err
+    return 0; //i->min_key <= j->max_key && i->max_key >= j->min_key
 }
 
 struct range_map *range_map_create(){

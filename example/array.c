@@ -56,7 +56,7 @@ static void array_item_free(struct array_item *item){
 struct array *array_create(){
     struct array *a = calloc(1, sizeof(*a));
     if(NULL == a) goto err;
-    SKIPLIST_INIT((struct skiplist *)a, array_item_cmp);
+    skiplist_init((struct skiplist *)a, array_item_cmp);
     return a;
 
 err:
@@ -67,18 +67,13 @@ err:
 
 struct array_item *array_get(struct array *a, int index){
     struct array_item item = { .index=index, .value=NULL };
-    struct skiplist_node * res_node = SKIPLIST_GET((struct skiplist *)a, (struct skiplist_node *)&item);
-    if(NULL != res_node){
-        return (struct array_item *)res_node;
-    }
-    return NULL;
+    return (struct array_item *)skiplist_get((struct skiplist *)a, (struct skiplist_node *)&item);
 }
 
 int array_del(struct array *a, int index){
-    struct array_item item = { .index=index, .value=NULL };
-    struct skiplist_node * deleted_node = SKIPLIST_REMOVE((struct skiplist *)a, (struct skiplist_node *)&item);
-    if(NULL != deleted_node){
-        array_item_free((struct array_item *)deleted_node);
+    struct array_item *del_item = array_get(a, index);
+    if(NULL != del_item && SKIPLIST_OK == skiplist_del((struct skiplist *)a, (struct skiplist_node *)del_item)){
+        array_item_free(del_item);
         return ARRAY_OK;
     }
     return ARRAY_ERR;
@@ -86,34 +81,50 @@ int array_del(struct array *a, int index){
 
 int array_set(struct array *a, struct array_item *item){
     array_del(a, item->index); //try deleting before inserting
-    return SKIPLIST_OK == SKIPLIST_PUT((struct skiplist *)a, (struct skiplist_node *)item) ? ARRAY_OK : ARRAY_ERR;
+    return SKIPLIST_OK == skiplist_put((struct skiplist *)a, (struct skiplist_node *)item) ? ARRAY_OK : ARRAY_ERR;
 }
 
 void array_free(struct array *a){
     if(NULL == a) return;
-    struct skiplist_node *iter = (struct skiplist_node *)&(((struct skiplist *)a)->header);
-    SKIPLIST_FOREACH((struct skiplist *)a, iter, {
-        struct array_item *item = (struct array_item *)iter;
+    struct skiplist_node *pos, *iter = NULL;
+    SKIPLIST_FOREACH_NEXT((struct skiplist *)a, pos, iter){
+        struct array_item *item = (struct array_item *)pos;
         array_del(a, item->index);
-    });
+    }
     free(a);
 }
 
 //iterator
 struct array_iterator{
-    struct array_item *node_curr;
+    struct skiplist_node *pos;
+    struct skiplist_node *end;
 };
 
 struct array_iterator array_iterator_begin(struct array *a, int index){
-    struct array_item pair = (struct array_item){ .index = index };
-    struct array_item *start_node = (struct array_item *)SKIPLIST_GET((struct skiplist *)a, (struct skiplist_node *)&pair);
-    return (struct array_iterator){ .node_curr = start_node };
+    struct array_item item = { .index = index };
+    struct skiplist_node *start = skiplist_get((struct skiplist *)a, (struct skiplist_node *)&item);
+    return (struct array_iterator){ 
+                .pos = start, 
+                .end = ((struct skiplist *)a)->header
+            };
+}
+
+struct array_item *array_iterator_prev(struct array_iterator *iter){
+    struct skiplist_node *curr = iter->pos;
+    if(NULL != curr && iter->end != curr){
+        iter->pos = curr->prev[0];
+        return (struct array_item *)curr;
+    }
+    return NULL;
 }
 
 struct array_item *array_iterator_next(struct array_iterator *iter){
-    struct skiplist_node *node_ref = (struct skiplist_node *)iter->node_curr;
-    iter->node_curr = (struct array_item *)(NULL != node_ref ? node_ref->forward[0] : NULL);
-    return (struct array_item *)node_ref;
+    struct skiplist_node *curr = iter->pos;
+    if(NULL != curr && iter->end != curr){
+        iter->pos = curr->next[0];
+        return (struct array_item *)curr;
+    }
+    return NULL;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -151,12 +162,12 @@ int main(){
     cover_testing(a);
 
     int i = 0;
-    struct array_iterator iterator = array_iterator_begin(a, 1234);
+    struct array_iterator iterator = array_iterator_begin(a, 100);
     struct array_item *curr = NULL;
-    while(NULL != (curr = array_iterator_next(&iterator))){
+    while(NULL != (curr = array_iterator_prev(&iterator))){
         printf("index:%d value:%s\n", curr->index, curr->value);
-        array_del(a, curr->index);
-        if(i++ >= 10){
+        assert(ARRAY_OK == array_del(a, curr->index));
+        if(++i >= 10){
             break;
         }
     }

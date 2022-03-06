@@ -49,9 +49,9 @@ static int map_pair_cmp(void *k1, void *k2){
 void map_pair_free(struct map_pair *pair){
     if(NULL != pair){
         if(NULL != pair->key)
-            free(pair->key);
+           free(pair->key);
         if(NULL != pair->value)
-            free(pair->value);
+           free(pair->value);
         free(pair);
     }
 }
@@ -59,7 +59,7 @@ void map_pair_free(struct map_pair *pair){
 struct map *map_create(){
     struct map *m = calloc(1, sizeof(*m));
     if(NULL == m) goto err;
-    SKIPLIST_INIT((struct skiplist *)m, map_pair_cmp);
+    skiplist_init((struct skiplist *)m, map_pair_cmp);
     return m;
 
 err:
@@ -68,55 +68,65 @@ err:
     return NULL;
 }
 
-int map_del(struct map *m, void *key){
+int map_put(struct map *m, struct map_pair *pair){
+    return SKIPLIST_OK == skiplist_put((struct skiplist *)m, (struct skiplist_node *)pair) ? MAP_OK : MAP_ERR;
+}
+
+struct map_pair *map_get(struct map *m, void *key){
     struct map_pair pair = { .key=key, .value=NULL };
-    struct skiplist_node *deleted_node = SKIPLIST_REMOVE((struct skiplist *)m, (struct skiplist_node *)&pair);
-    if(NULL != deleted_node){
-        map_pair_free((struct map_pair *)deleted_node);
+    return (struct map_pair *)skiplist_get((struct skiplist *)m, (struct skiplist_node *)&pair);
+}
+
+int map_del(struct map *m, void *key){
+    struct map_pair *del_item = map_get(m, key);
+    if(NULL != del_item && SKIPLIST_OK == skiplist_del((struct skiplist *)m, (struct skiplist_node *)del_item)){
+        map_pair_free((struct map_pair *)del_item);
         return MAP_OK;
     }
     return MAP_ERR;
 }
 
-int map_put(struct map *m, struct map_pair *pair){
-    return SKIPLIST_OK == SKIPLIST_PUT((struct skiplist *)m, (struct skiplist_node *)pair) ? MAP_OK : MAP_ERR;
-}
-
-struct map_pair *map_get(struct map *m, void *key){
-    struct map_pair pair = { .key=key, .value=NULL };
-    struct skiplist_node *res_node = SKIPLIST_GET((struct skiplist *)m, (struct skiplist_node *)&pair);
-    if(NULL != res_node){
-        return (struct map_pair *)res_node;
-    }
-    return NULL;
-}
-
 void map_free(struct map *m){
     if(NULL == m) return;
-    struct skiplist_node *iter = (struct skiplist_node *)&(((struct skiplist *)m)->header);
-    SKIPLIST_FOREACH((struct skiplist *)m, iter, {
-        struct map_pair *pair = (struct map_pair *)iter;
-        //printf("key:%s value:%s\n", pair->key, pair->value);        
+    struct skiplist_node *pos, *iter = NULL;
+    SKIPLIST_FOREACH_NEXT((struct skiplist *)m, pos, iter){
+        struct map_pair *pair = (struct map_pair *)pos;
         map_del(m, pair->key);
-    });
+    }
     free(m);
 }
 
 //iterator
 struct map_iterator{
-    struct map_pair *node_curr;
+    struct skiplist_node *pos;
+    struct skiplist_node *end;
 };
 
 struct map_iterator map_iterator_begin(struct map *m, char *key){
-    struct map_pair pair = (struct map_pair){ .key = key };
-    struct map_pair *start_node = (struct map_pair *)SKIPLIST_GET((struct skiplist *)m, (struct skiplist_node *)&pair);
-    return (struct map_iterator){ .node_curr = start_node };
+    struct map_pair pair = { .key = key };
+    struct skiplist_node *start = skiplist_get((struct skiplist *)m, (struct skiplist_node *)&pair);
+    return (struct map_iterator){ 
+                .pos = start, 
+                .end = ((struct skiplist *)m)->header 
+            };
+}
+
+struct map_pair *map_iterator_prev(struct map_iterator *iter){
+    struct skiplist_node *curr = iter->pos;
+    if(NULL != curr && iter->end != curr){
+        iter->pos = curr->prev[0];
+        return (struct map_pair *)curr;
+    }
+    return NULL;
 }
 
 struct map_pair *map_iterator_next(struct map_iterator *iter){
-    struct skiplist_node *node_ref = (struct skiplist_node *)iter->node_curr;
-    iter->node_curr = (struct map_pair *)(NULL != node_ref ? node_ref->forward[0] : NULL);
-    return (struct map_pair *)node_ref;
+    struct skiplist_node *curr = iter->pos;
+    if(NULL != curr && iter->end != curr){
+        iter->pos = curr->next[0];
+        return (struct map_pair *)curr;
+    }
+    return NULL;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -163,8 +173,8 @@ int main(){
     struct map_pair *curr = NULL;
     while(NULL != (curr = map_iterator_next(&iterator))){
         printf("key:%s value:%s\n", curr->key, curr->value);
-        map_del(m, curr->key);
-        if(i++ >= 10){
+        assert(MAP_OK == map_del(m, curr->key));
+        if(++i >= 10){
             break;
         }
     }

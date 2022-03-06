@@ -11,7 +11,7 @@ INC_PATH = -I$(SRC_PATH)
 CFLAGS = -g -O0 -Wall $(INC_PATH)
 
 clean:
-	$(RM) $(SRC_PATH)/*.o $(BIN_PATH)/map $(BIN_PATH)/range_map $(BIN_PATH)/array $(BIN_PATH)/set
+	$(RM) $(SRC_PATH)/*.o $(BIN_PATH)/map $(BIN_PATH)/array
 
 array: $(SRC_OBJS) 
 	$(CC) -o $(BIN_PATH)/$@ $(SRC_OBJS) $(EXAMPLE_PATH)/array.c $(EXAMPLE_PATH)/utils.c $(CFLAGS)
@@ -21,10 +21,3 @@ map: $(SRC_OBJS)
 	$(CC) -o $(BIN_PATH)/$@ $(SRC_OBJS) $(EXAMPLE_PATH)/map.c $(EXAMPLE_PATH)/utils.c $(CFLAGS)
 	@echo "compile '$@' success!";
 
-range_map: $(SRC_OBJS) 
-	$(CC) -o $(BIN_PATH)/$@ $(SRC_OBJS) $(EXAMPLE_PATH)/range_map.c $(EXAMPLE_PATH)/utils.c $(CFLAGS)
-	@echo "compile '$@' success!";
-
-set: $(SRC_OBJS) 
-	$(CC) -o $(BIN_PATH)/$@ $(SRC_OBJS) $(EXAMPLE_PATH)/set.c $(EXAMPLE_PATH)/utils.c $(CFLAGS)
-	@echo "compile '$@' success!";

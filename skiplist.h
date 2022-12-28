@@ -26,7 +26,7 @@ extern "C" {
 
     #define SKIPLIST_OK 0
     #define SKIPLIST_ERR -1
-    #define SKIPLIST_MAXLEVEL 16
+    #define SKIPLIST_MAXLEVEL 8
 
     struct skiplist_node{
         int level;
@@ -55,7 +55,8 @@ extern "C" {
             struct skiplist_node *tmp_node = (sl)->header; \
             int i = SKIPLIST_MAXLEVEL - 1; \
             for(; i >= 0; i--){ \
-                while(tmp_node->next[i] != (sl)->header && 0 > (sl)->cmp_item(tmp_node->next[i], (node))){ \
+                while(tmp_node->next[i] != (sl)->header && \
+                        0 > (sl)->cmp_item(tmp_node->next[i], (node))){ \
                     tmp_node = tmp_node->next[i]; \
                 } \
                 (tracks)[i] = tmp_node; \
@@ -82,17 +83,17 @@ extern "C" {
     }
 
     static inline int skiplist_put(struct skiplist *sl, struct skiplist_node *new_node){
-        struct skiplist_node *tracks[SKIPLIST_MAXLEVEL] = {[0 ... SKIPLIST_MAXLEVEL-1] = NULL};
+        struct skiplist_node *tracks[SKIPLIST_MAXLEVEL] = { 0, };
         SKIPLIST_TRACK(sl, new_node, tracks);
         struct skiplist_node *existing_node = tracks[0]->next[0];
         if(sl->header == existing_node || 0 != sl->cmp_item(existing_node, new_node)){
             new_node->level = SKIPLIST_RANDOM_LEVEL();
             int i = 0;
             for(; i < new_node->level; i ++){
-                tracks[i]->next[i]->prev[i] = new_node;
-                new_node->next[i] = tracks[i]->next[i];
-                tracks[i]->next[i] = new_node;
-                new_node->prev[i] = tracks[i];
+                struct skiplist_node *p = tracks[i], *n = p->next[i];
+                p->next[i] = n->prev[i] = new_node;
+                new_node->prev[i] = p;
+                new_node->next[i] = n;
             }
             sl->busy += 1;
             return SKIPLIST_OK;
@@ -102,7 +103,7 @@ extern "C" {
 
     static inline struct skiplist_node *skiplist_get(struct skiplist *sl, struct skiplist_node *node){
         struct skiplist_node *res = NULL;
-        struct skiplist_node *tracks[SKIPLIST_MAXLEVEL] = {[0 ... SKIPLIST_MAXLEVEL-1] = NULL};
+        struct skiplist_node *tracks[SKIPLIST_MAXLEVEL] = { 0, };
         SKIPLIST_TRACK(sl, node, tracks);
         struct skiplist_node *existing_node = tracks[0]->next[0];
         if(sl->header != existing_node && 0 == sl->cmp_item(existing_node, node)){
@@ -115,8 +116,9 @@ extern "C" {
         if(sl->header != del_node){
             int i = 0;
             for(; i < del_node->level; i++){
-                del_node->prev[i]->next[i] = del_node->next[i];
-                del_node->next[i]->prev[i] = del_node->prev[i];
+                struct skiplist_node *p = del_node->prev[i], *n = del_node->next[i];
+                p->next[i] = n;
+                n->prev[i] = p;
             }
             sl->busy -= 1;
             return SKIPLIST_OK;

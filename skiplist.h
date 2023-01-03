@@ -77,6 +77,7 @@ extern "C" {
         sl->busy = 0;
         sl->cmp_item = cmp_item;
         *(sl->header) = (struct skiplist_node){
+                            .level = SKIPLIST_MAXLEVEL,
                             .prev = {[0 ... SKIPLIST_MAXLEVEL-1] = sl->header},
                             .next = {[0 ... SKIPLIST_MAXLEVEL-1] = sl->header}
                         };
